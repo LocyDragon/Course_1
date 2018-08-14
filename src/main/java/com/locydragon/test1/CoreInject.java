@@ -16,15 +16,15 @@ import java.security.ProtectionDomain;
  * @author  LocyDragon
  */
 public class CoreInject {
-	public static final String craftPlayerClass = "/CraftPlayer";
+	public static final String craftPlayerClass = "CraftPlayer";
+	public static final String obc = "org/bukkit/craftbukkit";
 	public static final String version = "";
 	public static void premain(String agentArgs, Instrumentation inst) {
 		//注意 在这里使用Bukkit.getServer() 会返回null 因为服务器还没有启动.
-		System.out.println("注入sendMessage....");
 		inst.addTransformer(new ClassFileTransformer() {
 			@Override
 			public byte[] transform(ClassLoader loader, String className, Class<?> classBeingRedefined, ProtectionDomain protectionDomain, byte[] classfileBuffer) throws IllegalClassFormatException {
-				if (className.endsWith(craftPlayerClass)) {
+				if (className.startsWith(obc) && className.endsWith(craftPlayerClass)) {
 					ClassPool pool = ClassPool.getDefault();
 					//获取Javassist的储存类的池
 					try {
@@ -38,18 +38,18 @@ public class CoreInject {
 						//获取CraftPlayer类
 						CtMethod sendMsgMethod = ctClass.getDeclaredMethod("sendMessage", new CtClass[]{ pool.getCtClass("java.lang.String") });
 						//获取发送信息的方法
-						ctClass.setName("sendMessage$impl");
+						ctClass.removeMethod(sendMsgMethod);
+						sendMsgMethod.setName("sendMessage_impl");
 						//修改名称 避免方法重复
+						ctClass.addMethod(sendMsgMethod);
 						CtMethod newMethod = CtNewMethod.copy(sendMsgMethod, "sendMessage", ctClass, null);
 						//创建新的方法，复制原来的方法
 						StringBuilder code = new StringBuilder();
 						//使用一个StringBuilder来储存源码
 						code.append("{\n");
-						code.append("if (message.equals(\"HelloWorld\")) { message = \"ByeWorld\"; } \n");
-						code.append("sendMessage$impl($$);\n");
-						//这里代表执行原有代码 $$ 代表原有参数
+						code.append("if (message.trim().equalsIgnoreCase(\"HelloWorld\")) { \n message = \"ByeWorld\"; \n} \n");
 						code.append("}\n");
-						newMethod.setBody(code.toString());
+						newMethod.insertBefore(code.toString());
 						ctClass.addMethod(newMethod);
 						return ctClass.toBytecode();
 					} catch (ClassNotFoundException | NotFoundException | CannotCompileException | IOException exc) {
