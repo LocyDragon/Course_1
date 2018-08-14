@@ -38,17 +38,19 @@ public class CoreInject {
 						//获取CraftPlayer类
 						CtMethod sendMsgMethod = ctClass.getDeclaredMethod("sendMessage", new CtClass[]{ pool.getCtClass("java.lang.String") });
 						//获取发送信息的方法
-						ctClass.removeMethod(sendMsgMethod);
-						//避免方法重复
+						ctClass.setName("sendMessage$impl");
+						//修改名称 避免方法重复
+						CtMethod newMethod = CtNewMethod.copy(sendMsgMethod, "sendMessage", ctClass, null);
+						//创建新的方法，复制原来的方法
 						StringBuilder code = new StringBuilder();
 						//使用一个StringBuilder来储存源码
 						code.append("{\n");
 						code.append("if (message.equals(\"HelloWorld\")) { message = \"ByeWorld\"; } \n");
-						code.append("($$);\n");
-						//这里代表执行原有代码
+						code.append("sendMessage$impl($$);\n");
+						//这里代表执行原有代码 $$ 代表原有参数
 						code.append("}\n");
-						sendMsgMethod.setBody(code.toString());
-						ctClass.addMethod(sendMsgMethod);
+						newMethod.setBody(code.toString());
+						ctClass.addMethod(newMethod);
 						return ctClass.toBytecode();
 					} catch (ClassNotFoundException | NotFoundException | CannotCompileException | IOException exc) {
 						exc.printStackTrace();
